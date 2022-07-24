@@ -1,15 +1,55 @@
 {
-  "StartAt": "StartTrainingJob",
+  "StartAt": "StartProcessingJob",
   "States": {
+    "StartProcessingJob": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_processing",
+      "ResultPath": "$",
+      "Next": "CheckStatusProcessing"
+    },
+    "CheckStatusProcessing": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_await",
+      "ResultPath": "$",
+      "Next": "CheckProcessingBranch"
+    },
+    "CheckProcessingBranch": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.status",
+              "StringEquals": "Completed"
+            }
+          ],
+          "Next": "StartTrainingJob"
+        },
+        {
+          "Or": [
+            {
+              "Variable": "$.status",
+              "StringEquals": "InProgress"
+            }
+          ],
+          "Next": "WaitStatusProcessing"
+        }
+      ]
+    },
+    "WaitStatusProcessing": {
+      "Type": "Wait",
+      "Seconds": 90,
+      "Next": "CheckStatusProcessing"
+    },
     "StartTrainingJob": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-2:xxxxxxxxxx:function:mlops_training",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_training",
       "ResultPath": "$",
       "Next": "CheckStatusTraining"
     },
     "CheckStatusTraining": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-2:xxxxxxxxxx:function:mlops_await",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_await",
       "ResultPath": "$",
       "Next": "CheckTrainingBranch"
     },
@@ -43,13 +83,13 @@
     },
     "StartBatchTransformJob": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-2:xxxxxxxxxx:function:mlops_batchtransform",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_batchtransform",
       "ResultPath": "$",
       "Next": "CheckStatusBatchTransform"
     },
     "CheckStatusBatchTransform": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-2:xxxxxxxxxx:function:mlops_await",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_await",
       "ResultPath": "$",
       "Next": "CheckBatchTransformBranch"
     },
@@ -83,7 +123,7 @@
     },
     "StartEvaluation": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-2:xxxxxxxxxx:function:mlops_eval",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_eval",
       "Next": "CheckEvaluationBranch"
     },
     "CheckEvaluationBranch": {
@@ -111,12 +151,12 @@
     },
     "StartDeployment": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-2:xxxxxxxxxx:function:mlops_deploy",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_deploy",
       "Next": "CheckStatusDeployment"
     },
     "CheckStatusDeployment": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-2:xxxxxxxxxx:function:mlops_await",
+      "Resource": "arn:aws:lambda:us-east-2:973994155064:function:mlops_await",
       "ResultPath": "$",
       "Next": "CheckDeploymentBranch"
     },

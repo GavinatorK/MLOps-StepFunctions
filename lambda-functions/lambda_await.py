@@ -3,12 +3,6 @@ import json
 import boto3
 import os
 
-'''
-This lambda function is invoked repeatedly to wait on async sagemaker jobs until they are done. it receives the event from
-all other lambda functions that invoke it 
-
-'''
-
 sagemaker = boto3.client('sagemaker')
 
 
@@ -27,15 +21,15 @@ def lambda_handler(event, context):
             failure_reason = training_details['FailureReason']
             event['message'] = 'Training job failed. {}'.format(failure_reason)
     elif stage == 'BatchTransform':
-        name = event['transform_job_name']
-        transform_details = describe_transform_job(name)
-        status = transform_details['TransformJobStatus']
-        if status == "Completed":
-            event['message'] = 'Batch Transfrom completed {}'.format(name)
-            event['transform_output'] = transform_details['TransformOutput']['S3OutputPath']
-        elif status == "Failed":
-            failure_reason = transform_details['FailureReason']
-            event['message'] = 'Transform Job Failed. {}'.format(failure_reason)
+        name=event['transform_job_name']
+        transform_details=describe_transform_job(name)
+        status= transform_details['TransformJobStatus']
+        if status=="Completed":
+            event['message']= 'Batch Transfrom completed {}'.format(name)
+            event['transform_output']=transform_details['TransformOutput']['S3OutputPath']
+        elif status=="Failed":
+            failure_reason=transform_details['FailureReason']
+            event['message']='Transform Job Failed. {}'.format(failure_reason)
     elif stage == 'Deployment':
         name = event['endpoint']
         endpoint_details = describe_endpoint(name)
@@ -46,11 +40,21 @@ def lambda_handler(event, context):
             failure_reason = endpoint_details['FailureReason']
             event['message'] = 'Deployment failed for endpoint "{}". {}'.format(name, failure_reason)
         elif status == 'RollingBack':
-            event[
-                'message'] = 'Deployment failed for endpoint "{}", rolling back to previously deployed version.'.format(
-                name)
+            event['message'] = 'Deployment failed for endpoint "{}", rolling back to previously deployed version.'.format(name)
+    elif stage=="Processing":
+        name=event['processing_job_name']
+        processing_details=describe_processing(name)
+        status=processing_details['ProcessingJobStatus']
+        if status=="Completed":
+            event['processing_output']=processing_details['ProcessingOutputConfig']['Outputs'][0]['S3Output']['S3Uri']
+        elif status=="Failed":
+            failure_reason=processing_details['FailureReason']
+            event['message']='Processing Job Failed. {}'.format(failure_reason)
+            
     event['status'] = status
     return event
+
+
 
 
 def describe_training_job(name):
@@ -68,10 +72,10 @@ def describe_training_job(name):
     except Exception as e:
         print(e)
         print('Unable to describe hyperparameter tunning job.')
-        raise (e)
+        raise(e)
     return response
-
-
+    
+    
 def describe_transform_job(name):
     """ Describe SageMaker transform job identified by input name.
     Args:
@@ -80,7 +84,7 @@ def describe_transform_job(name):
         (dict)
         Dictionary containing metadata and details about the status of the transform job.
     """
-
+    
     try:
         response = sagemaker.describe_transform_job(
             TransformJobName=name
@@ -88,9 +92,11 @@ def describe_transform_job(name):
     except Exception as e:
         print(e)
         print('Unable to describe endpoint.')
-        raise (e)
+        raise(e)
     return response
-
+    
+    
+    
 
 def describe_endpoint(name):
     """ Describe SageMaker endpoint identified by input name.
@@ -107,5 +113,25 @@ def describe_endpoint(name):
     except Exception as e:
         print(e)
         print('Unable to describe endpoint.')
-        raise (e)
+        raise(e)
+    return response
+    
+
+def describe_processing(name):
+    """ Describe SageMaker processing identified by input name.
+    Args:
+        name (string): Name of SageMaker processing to describe.
+    Returns:
+        (dict)
+        Dictionary containing metadata and details about the status of the endpoint.
+    """
+    try:
+        response = sagemaker.describe_processing_job(
+            
+            ProcessingJobName=name
+        )
+    except Exception as e:
+        print(e)
+        print('Unable to describe processing.')
+        raise(e)
     return response
