@@ -56,6 +56,8 @@ Ftom Lambda Console, Select the options as shown below and paste in the code fro
 
 For the function mlops_eval , we want to use numpy library which is not natively supported by lambda functions, we will use AWS provided lambda layer which has numpy. Follow steps below by scrolling to the bottom of your lambda console for mlops_eval
 
+Download the zip file from following location using wget or curl 
+```wget -O s3://ml-materials/numpy-lambda-layer.zip```
 
 ![Lambda Layer1](./img/lambda-layer.png "Add Layer").
 
