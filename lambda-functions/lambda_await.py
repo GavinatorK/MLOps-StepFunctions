@@ -5,11 +5,29 @@ import os
 
 sagemaker = boto3.client('sagemaker')
 
+import decimal
+
+
+# Helper class to convert a DynamoDB item to JSON.
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            if abs(o) % 1 > 0:
+                return float(o)
+            else:
+                return int(o)
+        return super(DecimalEncoder, self).default(o)
+
+dynamodb = boto3.resource('dynamodb')
+
+table = dynamodb.Table('plops-dev')
+
+
 
 def lambda_handler(event, context):
     stage = event['stage']
     if stage == 'Training':
-        name = event['name']
+        name = event['training_job_name']
         training_details = describe_training_job(name)
         print(training_details)
         status = training_details['TrainingJobStatus']
@@ -47,9 +65,12 @@ def lambda_handler(event, context):
         status=processing_details['ProcessingJobStatus']
         if status=="Completed":
             event['processing_output']=processing_details['ProcessingOutputConfig']['Outputs'][0]['S3Output']['S3Uri']
+            event['proc_job_status']="Success"
         elif status=="Failed":
             failure_reason=processing_details['FailureReason']
             event['message']='Processing Job Failed. {}'.format(failure_reason)
+            event['proc_job_status']="Failed"
+        update_ddb_item(event['name'], event['date-time'],'processing_info', event['proc_job_status'])
             
     event['status'] = status
     return event
@@ -135,3 +156,22 @@ def describe_processing(name):
         print('Unable to describe processing.')
         raise(e)
     return response
+    
+
+def update_ddb_item(modelName,dateTime,update_field, update_val, new_field=None):
+    response = table.update_item(
+    Key={
+        'modelName': modelName,
+        'dateTime': dateTime
+    },
+    UpdateExpression=f"set {update_field}.progress=:p",
+    ExpressionAttributeValues={
+        ':p': update_val
+    },
+    ReturnValues="ALL_NEW"
+    )
+    
+    print("UpdateItem succeeded:")
+    print(json.dumps(response, indent=4, cls=DecimalEncoder))
+    
+    

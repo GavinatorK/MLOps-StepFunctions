@@ -4,23 +4,41 @@ import boto3
 import time
 
 from typing import Optional
+import decimal
+
+
+# Helper class to convert a DynamoDB item to JSON.
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            if abs(o) % 1 > 0:
+                return float(o)
+            else:
+                return int(o)
+        return super(DecimalEncoder, self).default(o)
+
+dynamodb = boto3.resource('dynamodb')
+
+table = dynamodb.Table('plops-dev')
+
+
 
 
 region = boto3.Session().region_name    
 smclient = boto3.Session().client('sagemaker')
-roleArn = "arn:aws:iam::XXXXXXXXX:role/mlops_stepfuncs_sm_s3"
+roleArn = "arn:aws:iam::xxxxxxxxx:role/mlops_stepfuncs_sm_s3"
 
-proc_container='XXXXXXX.dkr.ecr.us-xxxx-x.amazonaws.com/sagemaker-processing-container:latest'
+proc_container='xxxxxxxxx.dkr.ecr.us-east-2.amazonaws.com/sagemaker-processing-container:latest'
 #pass None if not providing
-script_uri="<your-bucket>/code/preprocessing.py"
+script_uri="s3://<your-bucket-name>/code/preprocessing.py"
 
-bucket_path="s3://<your bucket>"
+bucket_path="s3://<your-bucket-name>"
 prefix = "train"
 input_s3_uri=bucket_path+"/"+prefix
 output_s3_uri=bucket_path+"/processing_output"
 
 #make sure this is unique for each execution
-name="<name for tracking>"
+name="<base name for model>"
 
 def get_unique_job_name(base_name: str):
     """ Returns a unique job name based on a given base_name
@@ -86,7 +104,6 @@ def lambda_handler(event, context):
     instance_type ="ml.m4.xlarge"
     volume_size = 20
     max_runtime = 3600  # Default: 1h
-    # these arguments are optional if your code is already encapsulating all of these
     container_arguments = ["--img_size", "1700", "--src_prefix", "Priority", "--dest_prefix", "abc"]
     entrypoint = None  # Entrypoint to the container, will be set automatically later
     
@@ -152,4 +169,21 @@ def lambda_handler(event, context):
     event["status"] = "InProgress"
     event['name'] = name
     event['processing_job_name']=job_name
+    
+    
+    response = table.put_item(
+    Item={
+        'modelName': name,
+        'dateTime': timestamp,
+        'processing_info': {
+            'job_name':job_name,
+            'container': proc_container,
+            'input':input_s3_uri,
+            'output':output_s3_uri
+                }
+         }
+    )
+
+    print("PutItem succeeded:")
+    print(json.dumps(response, indent=4, cls=DecimalEncoder))
     return event
